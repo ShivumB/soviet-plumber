@@ -1,0 +1,2046 @@
+<!DOCTYPE html>
+<!-- This is based on DillingerLee's great template here:
+https://github.com/Team-Code/KA_Offline -->
+<html> 
+ <head>
+    <title>Processing.JS inside Webpages: Template</title> 
+</head>
+ <body>
+    <p align="center"> 
+	<!--This draws the Canvas on the webpage -->
+      <canvas id="mycanvas"></canvas> 
+    </p>
+ </body>
+ 
+ <!-- Run all the JavaScript stuff -->
+ <!-- Include the processing.js library -->
+ <!-- See https://khanacademy.zendesk.com/hc/en-us/articles/202260404-What-parts-of-ProcessingJS-does-Khan-Academy-support- for differences -->
+ <script src="https://cdn.jsdelivr.net/processing.js/1.4.8/processing.min.js"></script> 
+ 
+ <script>
+    var sketchProc = function(processingInstance) {
+     with (processingInstance) {
+        size(600, 600); 
+        frameRate(60);
+        
+        // ProgramCodeGoesHere
+        /**
+
+Made by Shivum Banerjee, 17 Jan 2021
+
+CONTROLS
+-------------------------
+|Arrow Keys - Movement  |
+|R - Restart program    |
+|P - Pause              |
+|M - Toggle sound       |
+|C - Use item           |
+-------------------------
+**/
+{
+
+var keys = [];
+var levels = [];
+var level = 0;
+var question = 0;
+var chose = false;
+var correct = false;
+var answerKey = [["A","A","C"],["D","B","A"],["A","B","C"],["A","A","C","D","B"]];
+var mute = true;
+var scene = "title";
+angleMode = "radians";
+
+var loadImg = function(key,rows,columns,x,y,width1,height1) {
+
+    noStroke();
+    for(var i = 0; i < rows; i++) {
+        for(var j = 0; j < columns; j++) {
+            switch(key[i*columns + j]) {
+                case 0:
+                    noFill();
+                    break;
+                
+                case 1:
+                    fill(255, 0, 0);
+                    break;
+                    
+                case 2:
+                    fill(0, 0, 0);
+                    break;
+                    
+                case 3:
+                    fill(255, 240, 178);
+                    break;
+                    
+                case 4:
+                    fill(122, 122, 122);
+                    break;
+                    
+                case 5:
+                    fill(247, 255, 0);
+                    break;
+                    
+                case 6:
+                    fill(153, 95, 34);
+                    break;
+                    
+                case 7:
+                    fill(255,255,255);
+                    break;
+                    
+                case 8:
+                    fill(79, 97, 79);
+                    break;
+                    
+                case 9:
+                    fill(196);
+                    break;
+                    
+                case 10:
+                    fill(255,125,0);
+            }
+            
+            rect(x + j*width1/columns,y + i*height1/rows,width1/columns,height1/rows);
+        }
+    }
+};
+
+var collide = function(a,b) {
+    if(a.posX + a.width > b.posX && a.posX < b.posX + b.width && a.posY + a.height > b.posY && a.posY < b.posY + b.height) {
+        return true;
+    }
+    
+    return false;
+};
+
+var collidePos = function(x1,y1,w1,h1,x2,y2,w2,h2) {
+    if(x1 < x2 + w2 && x1 + w1 > x2 && y1 < y2 + h2 && y1 + h1 > y2) {
+        return true;   
+    }
+    return false;
+};
+
+var Button = function(x,y,w,h,text) {
+    this.posX = x;
+    this.posY = y;
+    this.width = w;
+    this.height = h;
+    this.text = text;
+};
+
+Button.prototype.act = function() {
+    fill(255);
+    if(collidePos(this.posX,this.posY,this.width,this.height,mouseX,mouseY,0,0)) {
+        fill(60);
+    }
+    rect(this.posX,this.posY,this.width,this.height,20);
+    
+    textSize(30);
+    fill(0,0,20,200);
+    textAlign(CENTER,CENTER);
+    text(this.text,this.posX + this.width/2,this.posY + this.height/2);
+    textAlign(LEFT,BOTTOM);
+};
+
+var Snow = function() {
+    
+    this.flakes = [];
+    this.offset = [];
+    
+    for(var i = 0; i < 50; i++) {
+        this.flakes.push([random(0,600),random(0,600)]); 
+        this.offset.push(random(0,Math.PI));
+    }
+};
+
+Snow.prototype.act = function(follow) {
+    fill(255);
+    stroke(255);
+    
+    for(var i = 0; i < this.flakes.length; i++) {
+        
+        this.flakes[i][1] += 6;
+        
+        ellipse(this.flakes[i][0] + abs(sin(millis())), this.flakes[i][1],1,1);   
+        
+        if(this.flakes[i][1] > height) {
+            this.flakes[i][1] = 0;   
+            this.flakes[i][0] = random(follow - 600,follow + 600);
+        }
+        
+        if(this.flakes[i][0] < follow - 600) {
+            this.flakes[i][0] += 750;   
+            this.flakes[i][1] = random(300,600);
+        }
+        if(this.flakes[i][0] > follow + 600) {
+            this.flakes[i][0] -= 750;
+            this.flakes[i][1] = random(300,600);
+        }
+        
+    }
+};
+
+var SmokeCloud = function(timer,x,y) {
+    this.timer = timer;
+    this.center = [x,y];
+    this.particles = [];
+    
+    for(var i = 0; i < 100; i++) {
+        this.particles[i] = [x + random(-5,5),y + random(-5,5)];
+    }
+};
+
+SmokeCloud.prototype.act = function(x,y) {
+    for(var i = 0; i < this.particles.length && --this.timer > 0; i++) {
+        var theta = PI/2;
+        
+        var dir = [this.particles[i][0] - this.center[0], this.particles[i][1] - this.center[1]];
+        
+        if(dir[0] !== 0) {
+            theta = atan(dir[1]/dir[0]);   
+        }
+
+        var mag = pow(sqrt(sq(dir[1]) + sq(dir[0])) + 1,1.5);
+        this.particles[i] = [mag*cos(theta) + this.center[0],mag*sin(theta) + this.center[1]];
+
+        fill(168, 168, 168);
+        noStroke();
+        ellipse(this.particles[i][0],this.particles[i][1],4,4);
+    }
+};
+
+var Grenade = function(posX,posY) {
+    this.posX = posX;
+    this.posY = posY;
+    
+    this.velX = 0;
+    this.velY = 0;
+    
+    this.width = 40;
+    this.height = 40;
+
+    this.equipped = false;
+    this.launched = false;
+    this.exploded = false;
+
+    this.sprite = [0,0,0,4,4,4,4,4,4,4,4,0,0,0,0,0,0,0,0,0,4,4,4,4,4,4,4,4,4,0,0,0,0,0,0,0,0,4,4,4,4,4,4,4,4,4,0,0,0,0,0,0,0,5,5,5,9,9,9,9,9,4,4,0,0,0,0,0,0,8,2,8,9,2,8,0,9,4,4,0,0,0,0,0,8,8,2,8,9,2,8,8,9,0,4,0,0,0,0,0,8,2,8,8,9,8,2,8,9,0,4,0,0,0,0,8,8,2,8,8,9,9,9,9,9,0,4,4,0,0,0,2,8,2,8,8,8,8,2,8,2,0,4,4,0,0,0,8,2,2,2,2,2,2,2,2,8,0,0,4,0,0,0,8,8,2,8,8,8,8,2,8,8,0,0,0,0,0,0,8,8,2,8,8,8,8,2,8,8,0,0,0,0,0,0,2,8,2,8,8,8,8,2,8,2,0,0,0,0,0,0,0,2,2,2,2,2,2,2,2,0,0,0,0,0,0,0,0,8,8,2,8,8,8,2,8,0,0,0,0,0,0,0,0,0,8,8,2,8,2,8,0,0,0,0,0];
+};
+
+Grenade.prototype.trigger = function(dir) {
+    if(!this.launched) {
+        if(dir === "L") {
+            this.velX = -40;   
+        } else {
+            this.velX = 40;
+        }
+    }
+    
+    this.launched = true;
+};
+
+Grenade.prototype.explode = function(zoombas) {
+    
+    for(var i = 0; i < zoombas.length; i++) {
+        if(dist(zoombas[i].posX,zoombas[i].posY,this.posX,this.posY) < 200) {
+            zoombas.splice(i,1,0);
+        }
+    }
+
+    if(!mute) {
+        playSound(getSound("retro/boom1"));
+    }
+
+    this.smokeCloud = new SmokeCloud(pow(10,10),this.posX,this.posY);
+    this.exploded = true;
+    this.posX = -500;
+};
+
+Grenade.prototype.act = function(ground,bricks,zoombas) {
+    
+    if(!this.exploded) {
+        loadImg(this.sprite,16,16,this.posX,this.posY,this.width,this.height);
+    }
+    
+    if(this.launched && !this.exploded) {
+        this.velY = min(this.velY + 3, 30); 
+        this.velX *= 0.9;
+        this.posX += this.velX;
+        this.posY += this.velY;
+        
+        for(var i = 0; i < ground.length; i++) {
+            if(collide(this,ground[i])) {
+                this.explode(zoombas);
+            }
+        }
+        for(var i = 0; i < bricks.length; i++) {
+            if(collide(this,bricks[i])) {
+                this.explode(zoombas);
+            }
+        }
+        for(var i = 0; i < zoombas.length; i++) {
+            if(collide(this,zoombas[i])) {
+                this.explode(zoombas);
+            }
+        }
+    }
+    
+    if(this.exploded) {
+        this.smokeCloud.act();   
+    }
+};
+
+var V1 = function(x,y) {
+    this.posX = x;
+    this.posY = y;
+    this.velX = 0;
+    this.velY = 0;
+    
+    this.width = 40;
+    this.height = 40;
+    
+    this.equipped = false;
+    this.launched = false;
+    this.exploded = false;
+    
+    this.dir = 0;
+    
+    this.sprite = [0,0,0,0,8,8,8,0,0,0,0,0,0,0,0,0,0,0,0,0,8,8,8,8,0,0,0,0,0,0,0,0,0,0,0,0,0,8,8,8,8,0,0,0,0,0,0,0,0,0,0,0,0,0,8,8,8,8,0,0,0,0,0,0,0,0,0,0,0,0,0,4,4,8,8,0,0,0,0,0,8,0,0,0,0,0,4,4,1,8,8,0,0,0,0,0,8,8,4,4,4,4,4,1,1,8,8,8,0,0,0,0,8,8,4,8,8,8,4,4,1,8,8,8,8,8,8,0,0,8,4,8,8,8,8,4,4,8,8,8,8,8,8,8,0,8,8,0,0,0,0,0,8,8,8,8,8,0,0,0,0,0,8,8,0,0,0,0,0,8,8,8,8,0,0,0,0,0,0,8,0,0,0,0,0,0,8,8,8,8,0,0,0,0,0,0,0,0,0,0,0,0,0,8,8,8,0,0,0,0,0,0,0,0,0,0,0,0,0,8,8,8,8,0,0,0,0,0,0,0,0,0,0,0,0,0,8,8,8,0,0,0,0,0,0,0,0,0,0,0,0,0,0,8,8,0];
+    
+    this.spriteL = [];
+    
+    for(var i = 0; i < 16; i++) {
+        for(var j = 15; j >= 0; j--) {
+            this.spriteL.push(this.sprite[i*16 + j]);   
+        }
+    }
+};
+
+V1.prototype.trigger = function(dir) {
+    if(!this.launched) {
+        if(dir === "L") {
+            this.velX = -8;   
+        } else {
+            this.velX = 8;
+        }
+    }
+    
+    this.dir = dir;
+    
+    this.launched = true;
+};
+
+V1.prototype.explode = function(zoombas) {
+    for(var i = 0; i < zoombas.length; i++) {
+        if(dist(zoombas[i].posX,zoombas[i].posY,this.posX,this.posY) < 200) {
+            zoombas.splice(i,1,0);
+        }
+    }
+
+    if(!mute) {
+        playSound(getSound("retro/boom1"));
+    }
+
+    this.smokeCloud = new SmokeCloud(pow(10,10),this.posX,this.posY);
+    this.exploded = true;
+    this.posX = -500;
+};
+
+V1.prototype.act = function(ground,bricks,zoombas) {
+    
+    if(!this.exploded) {
+        
+        if(this.dir === 0 || this.dir === "R") {
+            loadImg(this.sprite,16,16,this.posX,this.posY,this.width,this.height);
+        } else if(this.dir === "L") {
+            loadImg(this.spriteL,16,16,this.posX,this.posY,this.width,this.height); 
+        }
+    }
+    
+    if(this.launched && !this.exploded) {
+        this.posX += this.velX;
+        this.posY += this.velY;
+        
+        for(var i = 0; i < ground.length; i++) {
+            if(collide(this,ground[i])) {
+                this.explode(zoombas);
+            }
+        }
+        for(var i = 0; i < bricks.length; i++) {
+            if(collide(this,bricks[i])) {
+                this.explode(zoombas);
+            }
+        }
+        for(var i = 0; i < zoombas.length; i++) {
+            if(collide(this,zoombas[i])) {
+                this.explode(zoombas);
+            }
+        }
+    }
+    
+    if(this.exploded) {
+        this.smokeCloud.act();   
+    }  
+};
+
+var Flamethrower = function(x,y) {
+    this.posX = x;
+    this.posY = y;
+    this.velX = 0;
+    this.velY = 0;
+    
+    this.width = 40;
+    this.height = 40;
+    
+    this.equipped = false;
+    this.launched = false;
+    this.exploded = false;
+    
+    this.dir = 0;
+    
+    this.timer = 100;
+    
+    this.sprite = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,2,2,2,2,2,2,0,0,0,0,0,0,0,0,0,2,4,4,2,4,4,2,2,0,0,0,0,0,0,0,0,2,4,4,2,4,4,4,2,0,0,0,0,0,0,0,0,2,4,4,2,4,4,4,2,0,0,0,0,0,0,0,0,2,4,4,2,4,4,4,2,0,9,0,0,0,0,0,0,2,4,4,4,2,4,4,2,0,9,9,9,9,9,9,9,2,4,4,4,2,4,4,2,0,9,9,9,9,9,9,9,2,4,4,4,2,4,4,2,0,9,9,0,0,0,0,0,2,4,4,4,2,4,4,2,0,9,9,0,0,0,0,0,2,4,4,4,2,4,4,2,0,9,9,0,0,0,0,0,2,4,4,2,4,4,2,2,0,1,1,0,0,0,0,0,0,2,2,2,2,2,2,0,0,1,0,0,0,0,0,0,0,0,2,1,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,0,0,0,0,0,0,0];
+    
+    this.flameSprite = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,10,10,10,10,10,1,1,0,0,0,0,0,0,0,0,0,10,10,10,10,10,10,10,1,1,0,0,0,0,0,0,0,5,5,10,10,10,10,10,10,1,1,1,0,0,0,0,0,5,5,5,5,5,10,10,10,10,10,1,1,1,0,0,0,7,7,7,7,7,5,5,10,10,10,10,10,1,1,0,0,7,7,7,7,7,7,7,5,5,5,10,10,10,1,0,0,7,7,7,7,7,7,5,5,5,10,10,10,10,1,0,0,5,5,5,5,5,5,10,10,10,10,10,10,1,1,0,0,10,10,10,10,10,10,1,1,1,1,1,1,0,0,0,0,10,10,10,1,1,1,1,1,1,1,1,0,0,0,0,0,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
+    
+    this.flameSpriteL = [];
+    
+    for(var i = 0; i < this.sprite.length; i++) {
+        for(var j = 15; j >= 0; j--) {
+            this.flameSpriteL.push(this.flameSprite[i*16 + j]);
+        }
+    }
+    
+};
+
+Flamethrower.prototype.trigger = function(dir) {
+    if(!this.launched) {
+        if(dir === "L") {
+            this.velX = -20;   
+        } else {
+            this.velX = 20;
+        }
+    }
+    
+    if(!mute) {
+        playSound(getSound("rpg/battle-magic"));
+    }
+    
+    this.dir = dir;
+    
+    this.launched = true;
+};
+
+Flamethrower.prototype.act = function(ground,bricks,zoombas) {
+    
+    if(this.timer > 0 && !this.launched) {
+        loadImg(this.sprite,16,16,this.posX,this.posY,this.width,this.height);
+    } else if(this.timer > 0) {
+        if(this.dir === "R") {
+            loadImg(this.flameSprite,16,16,this.posX,this.posY,this.width,this.height);
+        } else {
+            loadImg(this.flameSpriteL,16,16,this.posX,this.posY,this.width,this.height);
+        }
+    }
+    
+    if(this.launched) {
+        this.posX += this.velX;
+        this.posY += this.velY;
+        
+        for(var i = 0; i < ground.length; i++) {
+            if(collide(this,ground[i])) {
+                this.posX = - 500;
+                this.timer = -1;
+            }
+        }
+        for(var i = 0; i < bricks.length; i++) {
+            if(collide(this,bricks[i])) {
+                this.posX = -500;
+                this.timer = -1;
+            }
+        }
+        for(var i = 0; i < zoombas.length; i++) {
+            if(collide(this,zoombas[i])) {
+                zoombas.splice(i,1,0);
+            }
+        }
+    }
+    
+    if(this.launched && --this.timer < 0) {
+        this.posX = - 500;   
+    }  
+};
+
+var Bowser = function(posX,posY) {
+    this.posX = posX;
+    this.posY = posY;
+    
+    this.width = 80;
+    this.height = 80;
+    
+    this.timer = 0;
+    
+    this.health = 1;
+    
+    this.sprite = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,3,3,3,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,3,3,3,3,3,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,7,7,3,3,3,1,2,7,3,3,3,3,7,6,6,6,6,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,7,7,7,3,3,2,2,7,3,3,3,3,7,7,6,6,6,6,6,0,0,0,0,0,0,0,0,0,0,0,0,0,7,7,7,3,3,7,7,7,3,3,3,3,7,7,6,6,6,6,7,7,7,0,0,0,0,0,0,0,0,0,0,0,2,2,3,3,3,3,3,3,3,3,3,3,7,6,6,6,7,7,1,1,2,0,0,0,0,0,0,0,0,0,0,0,2,2,3,3,3,3,3,3,3,3,3,7,7,6,6,6,1,1,1,1,2,6,6,0,0,0,0,0,0,0,0,0,3,3,3,3,3,3,3,3,3,3,7,7,6,6,6,6,1,1,1,1,2,6,6,0,0,0,0,0,0,0,0,0,0,3,3,3,3,3,3,3,0,0,7,6,6,6,6,6,6,1,1,2,6,6,6,6,0,0,2,2,2,2,2,2,2,0,0,0,0,0,0,0,0,0,7,7,7,7,6,6,6,6,1,2,6,6,6,6,0,0,2,2,2,2,2,2,2,0,0,0,0,1,1,1,1,1,1,1,3,3,7,6,6,6,6,6,6,6,6,6,0,0,0,0,0,0,0,2,2,3,3,3,3,1,7,2,2,7,7,1,3,3,7,6,6,6,6,7,7,6,6,6,0,0,0,0,0,0,0,2,3,3,3,3,3,1,7,7,2,7,2,1,3,3,7,6,6,6,6,1,1,7,7,2,0,0,0,0,0,0,0,3,3,3,3,3,3,1,2,2,2,2,2,1,3,3,7,6,6,6,6,1,1,1,1,2,6,0,0,0,0,0,0,3,3,3,3,3,3,1,2,7,2,7,7,1,3,3,7,6,6,6,6,1,1,1,1,2,6,0,0,0,0,0,0,3,3,3,3,3,3,1,7,7,2,2,7,1,6,6,7,6,6,6,6,6,6,1,2,6,6,0,0,0,0,0,0,0,0,3,3,3,3,1,1,1,1,1,1,1,6,6,7,7,6,6,7,7,7,7,7,6,6,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,6,6,6,6,6,6,7,6,6,7,1,1,1,2,6,6,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,6,6,6,6,6,6,7,7,6,1,1,1,1,2,6,6,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,6,6,6,6,6,6,6,7,7,6,1,1,2,6,6,6,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,6,6,6,6,6,6,6,7,7,6,1,2,6,6,6,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,6,6,6,6,6,6,6,6,7,7,6,6,6,6,6,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,6,6,6,6,6,6,6,6,6,7,7,6,6,6,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,6,6,6,6,6,6,6,6,7,7,6,6,6,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,6,6,6,6,6,6,6,6,7,7,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,3,3,6,6,6,6,6,6,6,6,7,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,7,7,3,3,3,7,6,6,6,6,6,6,6,6,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,7,7,7,3,3,7,7,3,3,3,3,3,3,3,3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,7,7,3,3,7,7,3,3,3,3,3,3,3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,7,7,7,3,7,7,7,3,3,3,3,3,3,3,3];
+};
+
+Bowser.prototype.act = function() {
+    this.posX += 3*sin(++this.timer/5);
+    loadImg(this.sprite,32,32,this.posX,this.posY,this.width,this.height);
+    
+    strokeWeight(3);
+    
+    fill(255,0,0);
+    rect(this.posX,this.posY - 20,80,10);
+    
+    fill(0,255,0);
+    rect(this.posX + this.width - 80*this.health,this.posY - 20,80*this.health, 10);
+    
+    strokeWeight(1);
+};
+
+var Ground = function(posX,posY) {
+    
+    this.posX = posX;
+    this.posY = posY;
+    this.width = 40;
+    this.height = 40;
+    this.img = [2,2,2,2,2,2,2,4,2,2,2,2,4,2,2,7,4,4,2,2,7,7,2,2,2,2,2,2,2,4,4,2,4,4,2,7,7,4,7,7,7,7,7,7,2,4,4,7,7,7,4,7,7,7,7,4,4,4,7,4,4,2,4,7,4,7,2,4,2,7,7,7,7,4,4,4,7,7,4,7,4,4,2,4,2,7,7,7,2,7,4,4,7,7,4,4,4,4,7,2,2,2,7,4,4,4,4,4,4,7,4,4,7,4,2,4,4,4,4,4,4,4,4,7,4,7,7,4,7,4,4,4,4,4,4,4,7,7,4,7,4,7,7,4,7,7,4,2,2,7,2,4,7,7,4,7,7,4,4,7,7,4,7,7,7,7,4,2,2,2,4,7,2,7,4,7,7,4,7,4,4,2,4,7,7,2,0,7,7,4,4,7,7,4,4,4,4,7,4,7,4,4,4,7,4,4,4,7,7,7,7,2,2,4,7,4,4,7,7,7,4,4,4,7,7,7,7,7,7,7,4,4,4,4,4,4,4,4,4,7,4,4,4,4,4,4,4,4,4,4,4,4,4,4,7,7];
+};
+
+Ground.prototype.act = function() {
+    stroke(0);
+    fill(255);
+    rect(this.posX,this.posY,this.width,this.height);
+};
+
+var Mush = function(posX,posY) {
+    this.posX = posX;
+    this.posY = posY;
+    this.width = 40;
+    this.height = 40;
+    
+    this.velX = -3;
+    this.velY = 0;
+    
+    this.img = [
+        0,0,0,0,0,2,2,2,2,2,2,0,0,0,0,0,
+        0,0,0,2,2,1,5,1,1,1,1,2,2,0,0,0,
+        0,0,2,2,1,5,5,1,1,1,5,1,2,2,0,0,
+        0,2,2,1,5,5,1,1,1,1,5,5,1,2,2,0,
+        0,2,1,1,5,1,5,1,1,1,1,5,1,1,2,0,
+        2,2,1,1,1,1,1,5,1,1,1,5,1,1,2,2,
+        2,1,1,1,1,5,1,1,5,1,5,5,1,1,1,2,
+        2,1,1,1,5,5,5,5,1,5,5,1,1,1,1,2,
+        2,1,1,5,5,1,5,5,5,5,5,1,1,1,1,2,
+        2,1,5,5,1,1,1,1,1,1,1,5,1,1,1,2,
+        2,1,1,1,2,2,2,2,2,2,2,2,5,1,1,2,
+        0,2,2,2,3,3,2,3,3,2,3,3,2,2,2,0,
+        0,0,2,3,3,3,2,3,3,2,3,3,3,2,0,0,
+        0,0,2,3,3,3,3,3,3,3,3,3,3,2,0,0,
+        0,0,0,2,3,3,3,3,3,3,3,3,2,0,0,0,
+        0,0,0,0,2,2,2,2,2,2,2,2,0,0,0,0,
+    ];
+};
+
+Mush.prototype.display = function() {
+    loadImg(this.img,16,16,this.posX,this.posY,this.width,this.height); 
+};
+
+Mush.prototype.act = function(ground,bricks) {
+    this.display();
+
+    this.velY = min(this.velY + 3, 30);
+    this.velY *= 0.8;
+    
+    this.posX += this.velX;
+    for(var i = 0; i < ground.length; i++) {
+        if(collide(this,ground[i])) {
+            if(this.posX + this.width/2 < ground[i].posX + ground[i].width/2) {
+                this.posX = ground[i].posX - this.width;
+                this.velX = -3;
+            } else {
+                this.posX = ground[i].posX + ground[i].width;
+                this.velX = 3;
+            }
+        }
+    }
+    for(var i = 0; i < bricks.length; i++) {
+        if(collide(this,bricks[i])) {
+            if(this.posX + this.width/2 < bricks[i].posX + bricks[i].width/2) {
+                this.posX = bricks[i].posX - this.width;
+                this.velX = -3;
+            } else {
+                this.posX = bricks[i].posX + bricks[i].width;
+                this.velX = 3;
+            }
+        }
+    }
+    
+    this.posY += this.velY;
+    for(var i = 0; i < ground.length; i++) {
+        if(collide(this,ground[i])) {
+            if(this.posY + this.height/2 < ground[i].posY + ground[i].height/2) {
+                this.posY = ground[i].posY - this.height;
+            } else {
+                this.posY = ground[i].posY + ground[i].height;
+            }
+        }
+    }
+    for(var i = 0; i < bricks.length; i++) {
+        if(collide(this,bricks[i])) {
+            if(this.posY + this.height/2 < bricks[i].posY + bricks[i].height/2) {
+                this.posY = bricks[i].posY - this.height;
+            } else {
+                this.posY = bricks[i].posY + bricks[i].height;
+            }
+        }
+    }
+};
+
+var Zoomba = function(posX,posY,posInArray) {
+    this.posX = posX;
+    this.posY = posY;
+    this.speed = 3;
+    this.velX = -this.speed;
+    this.velY = 0;
+    
+    this.posInArray = posInArray;
+    
+    this.frame = 0;
+    
+    this.width = 40;
+    this.height = 40;
+    
+    this.img = [
+        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,6,6,6,6,6,6,0,0,0,0,0,0,0,0,0,6,6,6,6,6,6,6,6,0,0,0,0,0,0,0,6,2,2,6,6,6,6,2,2,6,0,0,0,0,0,6,6,6,7,2,6,6,2,7,6,6,6,0,0,0,0,6,6,6,7,2,6,6,2,7,6,6,6,0,0,0,6,6,6,6,7,7,6,6,7,7,6,6,6,6,0,0,6,6,6,6,6,6,2,2,6,6,6,6,6,6,0,0,6,6,6,6,6,6,2,2,6,6,6,6,6,6,0,0,0,6,6,6,6,3,3,3,3,6,6,6,6,0,0,0,0,0,0,0,3,3,3,3,3,3,0,0,0,0,0,0,0,0,2,2,2,2,2,3,3,3,2,2,0,0,0,0,0,2,2,2,2,2,2,3,2,2,2,2,2,0,0,0,0,2,2,2,2,2,0,0,2,2,2,2,2,0,0,0,0,0,2,2,2,2,0,0,2,2,2,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+    ];
+    
+    this.imgL = [];
+    for(var i = 0; i < 16; i++) {
+        for(var j = 15; j >= 0; j--) {
+            this.imgL.push(this.img[i*16 + j]);
+        }
+    }
+};
+
+Zoomba.prototype.display = function() {
+    
+    if(sin(++this.frame/5) > 0 && round(abs(this.velX)) > 0) {
+        loadImg(this.img,16,16,this.posX,this.posY,this.width,this.height);
+    } else {
+        loadImg(this.imgL,16,16,this.posX,this.posY,this.width,this.height);
+    }
+};
+
+Zoomba.prototype.act = function(ground,zoombas,bricks) {
+    this.display();
+    
+    this.posX += this.velX;
+    for(var i = 0; i < ground.length; i++) {
+        if(collide(this,ground[i])) {
+            if(this.posX + this.width/2 < ground[i].posX + ground[i].width/2) {
+                this.posX = ground[i].posX - this.width;
+                this.velX = -this.speed;
+            } else {
+                this.posX = ground[i].posX + ground[i].width;
+                this.velX = this.speed;
+            }
+        }
+    }
+    for(var i = 0; i < bricks.length; i++) {
+        if(collide(this,bricks[i])) {
+            if(this.posX + this.width/2 < bricks[i].posX + bricks[i].width/2) {
+                this.posX = bricks[i].posX - this.width;
+                this.velX = -this.speed;
+            } else {
+                this.posX = bricks[i].posX + bricks[i].width;
+                this.velX = this.speed;
+            }
+        }
+    }
+    for(var i = 0; i < zoombas.length; i++) {
+        if(i !== this.posInArray && collide(this,zoombas[i])) {
+            if(this.posX + this.width/2 < zoombas[i].posX + zoombas[i].width/2) {
+                this.posX = zoombas[i].posX - this.width;
+                this.velX = -this.speed;
+            } else {
+                this.posX = zoombas[i].posX + zoombas[i].width;
+                this.velX = this.speed;
+            }
+        }
+    }
+    
+    this.posY += this.velY; 
+    for(var i = 0; i < ground.length; i++) {
+        if(collide(this,ground[i])) {
+            if(this.posY + this.height/2 < ground[i].posY + ground[i].height/2) {
+                this.posY = ground[i].posY - this.height;
+            } else {
+                this.posY = ground[i].posY + ground[i].height;
+            }
+        }
+    }
+    for(var i = 0; i < bricks.length; i++) {
+        if(collide(this,bricks[i])) {
+            if(this.posY + this.height/2 < bricks[i].posY + bricks[i].height/2) {
+                this.posY = bricks[i].posY - this.height;
+            } else {
+                this.posY = bricks[i].posY + bricks[i].height;
+            }
+        }
+    }
+    for(var i = 0; i < zoombas.length; i++) {
+        if(i !== this.posInArray && collide(this,zoombas[i])) {
+            if(this.posY + this.height/2 < zoombas[i].posY + zoombas[i].height/2) {
+                this.posY = zoombas[i].posY - this.height;
+            } else {
+                this.posY = zoombas[i].posY + ground[i].height;
+            }
+        }
+    }
+    
+    this.velY = min(this.velY + 3,30);
+};
+
+var Brick = function(x,y,content) {
+    this.posX = x;
+    this.posY = y;
+    this.width = 40;
+    this.height = 40;
+    
+    this.state = 0;
+    this.content = content;
+    
+    this.closedImg = [4,4,5,5,5,5,5,5,5,5,5,5,5,5,4,4,4,5,5,5,5,5,5,5,5,5,5,5,5,5,5,4,5,5,5,5,2,2,2,2,2,2,2,5,5,5,5,5,5,5,5,2,5,5,5,5,5,5,5,2,5,5,5,5,5,5,5,2,5,5,5,5,5,5,5,2,5,5,5,5,5,5,5,2,5,5,5,5,5,5,5,2,5,5,5,5,5,5,5,2,5,5,5,5,5,5,5,2,5,5,5,5,5,5,5,2,5,5,5,5,5,5,5,2,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,2,5,5,5,5,5,5,5,5,5,5,5,2,2,2,2,5,5,5,5,5,5,5,5,5,5,5,5,2,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,2,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,2,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,4,5,5,5,5,5,5,2,5,5,5,5,5,5,5,4,4,4,5,5,5,5,5,5,5,5,5,5,5,5,4,4];
+    
+    this.openedImg = [4,4,2,2,2,2,2,2,2,2,2,2,2,2,4,4,4,2,2,2,2,2,2,2,2,2,2,2,2,2,2,4,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,4,2,2,2,2,2,2,2,2,2,2,2,2,2,2,4,4,4,2,2,2,2,2,2,2,2,2,2,2,2,4,4];
+};
+
+Brick.prototype.act = function() {
+    if(this.state === 0) {
+        loadImg(this.closedImg,16,16,this.posX,this.posY,this.width,this.height);
+    } else {
+        loadImg(this.openedImg,16,16,this.posX,this.posY,this.width,this.height);
+    }
+};
+
+Brick.prototype.unpack = function(mushes,zoombas) {
+    switch(this.content) {
+        case "Mush":
+            mushes.push(new Mush(this.posX,this.posY - 40));
+            break;
+        
+        case "Zoomba":
+            zoombas.push(new Zoomba(this.posX,this.posY - 40,zoombas.length));
+            break;
+    }
+    this.state ++;
+};
+
+var Portal = function(x,y) {
+    this.posX = x;
+    this.posY = y;
+    this.width = 40;
+    this.height = 40;
+    
+    this.img = [7,7,0,0,0,0,0,0,0,0,0,0,0,0,7,7,7,2,2,0,0,0,0,0,0,0,0,0,0,2,2,7,0,2,2,2,0,0,0,0,0,0,0,0,2,2,2,0,0,0,2,2,2,0,0,0,0,0,0,2,2,2,0,0,0,0,0,2,2,2,7,7,7,7,2,2,2,0,0,0,0,0,0,0,2,5,7,7,7,7,5,2,0,0,0,0,0,0,0,0,7,7,5,7,7,5,7,7,0,0,0,0,0,0,0,0,7,7,7,5,5,7,7,7,0,0,0,0,0,0,0,0,7,7,7,5,5,7,7,7,0,0,0,0,0,0,0,0,7,7,5,7,7,5,7,7,0,0,0,0,0,0,0,0,2,5,7,7,7,7,5,2,0,0,0,0,0,0,0,2,2,2,7,7,7,7,2,2,2,0,0,0,0,0,2,2,2,0,0,0,0,0,0,2,2,2,0,0,0,2,2,2,0,0,0,0,0,0,0,0,2,2,2,0,7,2,2,0,0,0,0,0,0,0,0,0,0,2,2,7,7,7,0,0,0,0,0,0,0,0,0,0,0,0,7,7];
+};
+
+Portal.prototype.act = function() {
+    loadImg(this.img,16,16,this.posX,this.posY,this.width,this.height);
+};
+
+var Player = function(posX,posY,spawnX,spawnY) {
+    this.posX = posX;
+    this.posY = posY;
+    this.spawnX = spawnX;
+    this.spawnY = spawnY;
+    
+    this.velX = 0;
+    this.velY = 0;
+    
+    this.onGround = false;
+    this.iFrames = 90;
+    this.runFrame = 0;
+    this.dead = false;
+
+    this.state = 0;
+    this.crouch = false;
+    this.chosen = "R";
+    
+    this.width = 40;
+    this.height = 40;
+    
+    this.items = [];
+    this.touchedGrenade = -1;
+    this.touchedV1 = -1;
+    this.touchedFlamethrower = -1;
+    this.posHistory = [];
+    for(var i = 0; i <= 50; i++) {
+        this.posHistory.push([0,0]);   
+    }
+    
+    //sprites
+    {
+    this.neutral = [
+        0,0,0,0,0,4,4,4,4,5,5,0,0,0,0,0,
+        0,0,0,0,4,4,4,4,4,4,4,0,0,0,0,0,
+        0,0,0,0,4,4,4,3,2,3,0,0,0,0,0,0,
+        0,0,0,0,4,4,4,3,2,3,3,3,0,0,0,0,
+        0,0,0,0,4,4,4,3,3,3,2,3,3,0,0,0,
+        0,0,0,0,4,4,4,3,3,2,2,2,0,0,0,0,
+        0,0,0,0,0,4,4,3,3,3,3,0,0,0,0,0,
+        0,0,0,0,2,2,1,2,2,2,0,0,0,0,0,0,
+        0,0,0,2,2,2,1,2,2,1,2,2,0,0,0,0,
+        0,0,2,2,2,2,1,1,1,1,2,2,2,0,0,0,
+        0,0,3,3,2,1,5,1,1,5,1,2,3,3,0,0,
+        0,0,3,3,3,1,1,1,1,1,1,3,3,3,0,0,
+        0,0,3,3,3,1,1,1,1,1,1,3,3,3,0,0,
+        0,0,0,0,1,1,1,0,0,1,1,1,0,0,0,0,
+        0,0,0,2,2,2,0,0,0,0,2,2,2,0,0,0,
+        0,0,2,2,2,2,0,0,0,0,2,2,2,2,0,0,
+    ];
+    
+    this.neutralL = [];
+    
+    for(var i = 0; i < 16; i++) {
+        for(var j = 15; j >= 0; j--) {
+            this.neutralL.push(this.neutral[16*i + j]);   
+        }
+    }
+    
+    this.neutralCrouch = [
+        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+        0,0,0,0,0,4,4,4,4,5,5,0,0,0,0,0,
+        0,0,0,0,4,4,4,4,4,4,4,0,0,0,0,0,
+        0,0,0,0,4,4,4,3,2,3,0,0,0,0,0,0,
+        0,0,0,0,4,4,4,3,2,3,3,3,0,0,0,0,
+        0,0,0,0,4,4,4,3,3,3,2,3,3,0,0,0,
+        0,0,0,0,4,4,4,3,3,2,2,2,0,0,0,0,
+        0,0,0,0,0,4,4,3,3,3,3,0,0,0,0,0,
+        0,0,2,2,2,2,1,1,1,1,2,2,2,0,0,0,
+        0,0,3,3,2,1,5,1,1,5,1,2,3,3,0,0,
+        0,0,3,3,3,1,1,1,1,1,1,3,3,3,0,0,
+        0,0,3,3,3,1,1,1,1,1,1,3,3,3,0,0,
+        0,0,0,0,1,1,1,0,0,1,1,1,0,0,0,0,
+        0,0,0,2,2,2,0,0,0,0,2,2,2,0,0,0,
+        0,0,2,2,2,2,0,0,0,0,2,2,2,2,0,0,
+    ];
+    
+    this.neutralCrouchL = [];
+    
+    for(var i = 0; i < 16; i++) {
+        for(var j = 15; j >= 0; j--) {
+            this.neutralCrouchL.push(this.neutralCrouch[16*i + j]);   
+        }
+    }
+    
+    this.jump = [
+        0,0,0,0,0,4,4,4,4,5,5,0,0,0,0,0,0,0,0,0,4,4,4,4,4,4,4,0,0,0,0,0,0,0,0,0,4,4,4,3,2,3,0,0,0,0,0,0,0,0,0,0,4,4,4,3,2,3,3,3,0,3,3,3,0,0,0,0,4,4,4,3,3,3,2,3,0,3,3,3,0,0,0,0,4,4,4,3,3,2,2,0,0,3,3,2,0,0,0,0,0,4,4,3,3,3,0,0,2,2,2,2,3,3,2,2,2,2,1,2,2,1,2,2,2,2,0,0,3,3,3,2,2,2,2,1,2,2,1,2,2,0,0,0,3,3,3,0,2,1,1,1,1,1,1,1,2,0,0,0,0,0,0,0,1,1,1,5,1,1,1,5,0,0,2,0,0,0,0,0,1,1,1,1,1,1,1,1,0,0,2,0,0,2,2,1,1,1,1,1,1,1,1,1,1,2,2,0,0,2,2,1,1,1,1,0,0,0,1,1,1,2,2,0,0,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,0,0,0,0,0,0,0,0,0,0,0,0,0
+    ];
+    this.jumpL = [];
+    for(var i = 0; i < 16; i++) {
+        for(var j = 15; j >= 0; j--) {
+            this.jumpL.push(this.jump[j + i*16]);   
+        }
+    }
+    
+    this.run1 = [0,0,0,0,0,4,4,4,4,5,5,0,0,0,0,0,0,0,0,0,4,4,4,4,4,4,4,0,0,0,0,0,0,0,0,0,4,4,4,3,2,3,0,0,0,0,0,0,0,0,0,0,4,4,4,3,2,3,3,3,0,0,0,0,0,0,0,0,4,4,4,3,3,3,2,3,0,0,0,0,0,0,0,0,4,4,4,3,3,2,2,0,0,0,0,0,0,0,0,0,0,4,4,3,3,3,0,0,0,0,0,0,0,0,0,0,3,1,2,2,2,1,0,0,0,0,0,0,0,0,0,3,3,1,2,2,2,2,0,3,3,3,0,0,0,0,0,3,1,1,1,2,2,2,2,3,3,3,0,0,0,0,0,0,1,1,1,1,1,2,2,3,3,3,0,0,0,0,0,0,1,1,1,1,1,1,1,1,0,0,0,0,0,2,2,1,1,1,1,1,1,1,1,1,0,0,0,0,0,2,2,1,1,1,1,0,0,0,1,1,0,0,0,0,0,2,0,0,0,0,0,0,0,0,2,2,0,0,0,0,0,2,0,0,0,0,0,0,0,0,2,2,2,2,0];
+    
+    this.run1L = [];
+    for(var i = 0; i < 16; i++) {
+        for(var j = 15; j >= 0; j--) {
+            this.run1L.push(this.run1[i*16 + j]);   
+        }
+    }
+    
+    this.run2 = [0,0,0,0,0,4,4,4,4,5,5,0,0,0,0,0,0,0,0,0,4,4,4,4,4,4,4,0,0,0,0,0,0,0,0,0,4,4,4,3,2,3,0,0,0,0,0,0,0,0,0,0,4,4,4,3,2,3,3,3,0,0,0,0,0,0,0,0,4,4,4,3,3,3,2,3,0,0,0,0,0,0,0,0,4,4,4,3,3,2,2,0,0,0,0,0,0,0,0,0,0,4,4,3,3,3,0,0,0,0,0,0,0,0,0,0,0,1,2,2,1,1,0,0,0,0,0,0,0,0,0,0,0,1,2,2,1,1,1,0,0,0,0,0,0,0,0,0,0,1,2,2,2,1,1,3,3,3,0,0,0,0,0,0,0,1,2,2,2,2,2,3,3,3,0,0,0,0,0,0,0,1,1,2,2,2,2,3,3,3,0,0,0,0,0,0,0,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,1,1,2,2,1,0,0,0,0,0,0,0,0,0,0,0,2,2,2,2,2,2,0,0,0,0,0,0,0,0,0,0,2,2,2,2,0,0,0,0,0];
+    
+    this.run2L = [];
+    for(var i = 0; i < 16; i++) {
+        for(var j = 15; j >= 0; j--) {
+            this.run2L.push(this.run2[i*16 + j]);   
+        }
+    }
+    
+    this.run3 = [0,0,0,0,0,4,4,4,4,5,5,0,0,0,0,0,0,0,0,0,4,4,4,4,4,4,4,0,0,0,0,0,0,0,0,0,4,4,4,3,2,3,0,0,0,0,0,0,0,0,0,0,4,4,4,3,2,3,3,3,0,0,0,0,0,0,0,0,4,4,4,3,3,3,2,3,3,0,0,0,0,0,0,0,4,4,4,3,3,2,2,2,0,0,0,0,0,0,0,0,0,4,4,3,3,3,3,0,0,0,0,0,3,3,3,0,0,1,2,2,1,2,0,0,0,0,0,0,3,3,3,2,2,2,1,2,2,1,2,2,2,3,3,3,3,3,2,2,2,2,2,1,2,1,1,2,2,3,3,3,0,0,0,0,0,1,1,5,1,1,5,2,2,2,3,3,0,0,0,0,0,1,1,1,1,1,1,0,0,0,2,0,0,0,0,0,1,1,1,1,1,1,1,0,0,0,2,0,0,2,2,1,1,1,1,0,1,1,1,1,1,2,2,0,0,0,2,2,1,0,0,0,0,1,1,1,1,2,2,0,0,0,0,2,0,0,0,0,0,0,0,0,0,0,0,0];
+    
+    this.run3L = [];
+    for(var i = 0; i < 16; i++) {
+        for(var j = 15; j >= 0; j--) {
+            this.run3L.push(this.run3[i*16 + j]);   
+        }
+    }
+    
+    this.bigNeutral = [0,0,0,0,0,4,4,4,4,4,4,0,0,0,0,0,0,0,0,4,4,4,4,4,4,5,5,0,0,0,0,0,0,0,4,4,4,4,4,4,5,5,5,0,0,0,0,0,0,0,4,4,4,4,4,4,4,4,4,0,0,0,0,0,0,0,4,4,4,4,3,2,3,3,3,0,0,0,0,0,0,0,4,4,4,4,3,2,2,3,3,3,3,0,0,0,0,0,4,4,4,4,3,3,3,3,3,3,3,3,0,0,0,0,4,4,4,4,3,3,3,2,3,3,3,3,0,0,0,0,4,4,4,4,3,2,2,2,2,2,2,0,0,0,0,0,4,4,4,4,3,3,2,2,2,2,2,0,0,0,0,0,0,4,4,4,3,3,3,3,3,3,0,0,0,0,0,0,0,0,4,3,3,3,3,3,3,0,0,0,0,0,0,0,0,0,0,0,3,3,3,3,0,0,0,0,0,0,0,0,0,2,3,1,3,3,3,3,1,2,0,0,0,0,0,0,2,2,2,1,2,2,2,2,1,2,2,2,0,0,0,2,2,2,2,1,2,2,2,2,1,2,2,2,2,0,0,2,2,2,2,1,2,2,2,2,1,2,2,2,2,0,2,2,2,2,1,1,2,2,2,2,1,1,2,2,2,2,2,2,2,2,1,1,2,2,2,2,1,1,2,2,2,2,3,2,2,2,1,1,2,2,2,2,1,1,2,2,3,2,3,2,2,2,1,5,2,2,2,2,5,1,2,2,3,2,3,3,3,3,1,1,1,1,1,1,1,1,3,3,3,3,3,3,3,3,1,1,1,1,1,1,1,1,3,3,3,3,0,3,3,3,1,1,1,1,1,1,1,1,3,3,3,0,0,3,3,1,1,1,1,1,1,1,1,1,1,3,3,0,0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,1,1,1,1,0,0,1,1,1,1,0,0,0,0,0,0,3,3,3,0,0,0,0,3,3,3,0,0,0,0,0,0,2,2,2,0,0,0,0,2,2,2,0,0,0,0,0,2,2,2,2,0,0,0,0,3,2,2,2,0,0,0,0,2,2,2,2,0,0,0,0,3,2,2,2,0,0,3,3,2,2,2,3,0,0,0,0,3,2,3,3,3,3,3,3,2,2,3,3,0,0,0,0,3,2,3,3,3,3];
+    
+    this.bigNeutralL = [];
+    
+    for(var i = 0; i < 32; i++) {
+        for(var j = 15; j >= 0; j--) {
+            this.bigNeutralL.push(this.bigNeutral[i*16 + j]);
+        }
+    }
+    
+    this.bigNeutralCrouch = [
+        0,0,0,0,0,4,4,4,4,4,4,0,0,0,0,0,
+        0,0,0,0,4,4,4,4,4,4,5,0,0,0,0,0,
+        0,0,0,4,4,4,4,4,4,5,5,0,0,0,0,0,
+        0,0,0,4,4,4,3,3,2,3,0,0,0,0,0,0,
+        0,0,2,4,4,4,3,3,2,3,3,3,0,0,0,0,
+        0,0,2,4,4,4,3,3,3,2,3,3,3,0,0,0,
+        0,2,2,1,4,4,3,3,2,2,2,2,2,0,0,0,
+        2,2,2,2,1,3,3,3,3,3,3,2,2,2,2,0,
+        2,3,3,2,1,1,2,2,1,1,1,1,3,3,0,0,
+        2,3,3,3,1,5,1,1,5,1,1,3,3,3,1,0,
+        1,3,3,1,1,1,1,1,1,1,1,1,3,3,1,0,
+        1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,
+        0,2,2,2,1,1,1,1,1,1,1,2,2,2,0,0,
+        0,2,2,2,0,0,0,0,0,0,0,0,3,2,0,0,
+        2,2,2,2,0,0,0,0,0,0,0,0,3,2,2,2,
+        3,3,2,3,0,0,0,0,0,0,0,0,3,2,3,3,
+        
+    ];
+    
+    this.bigNeutralCrouchL = [];
+    
+    for(var i = 0; i < 16; i++) {
+        for(var j = 15; j >= 0; j --) {
+            this.bigNeutralCrouchL.push(this.bigNeutralCrouch[i*16 + j]);
+        }
+    }
+    
+    this.bigJump = [0,0,0,0,0,4,4,4,4,4,4,0,0,0,0,0,0,0,0,4,4,4,4,4,4,5,5,0,0,0,0,0,0,0,4,4,4,4,4,4,5,5,5,0,0,0,0,0,0,0,4,4,4,4,4,4,4,4,4,0,0,0,0,0,0,0,4,4,4,4,3,2,3,3,3,0,0,0,0,0,0,0,4,4,4,4,3,2,2,3,3,3,3,0,0,0,0,0,4,4,4,4,3,3,3,3,3,3,3,0,3,3,0,0,4,4,4,4,3,3,3,2,3,3,3,0,3,3,0,0,4,4,4,4,3,2,2,2,2,2,2,3,3,3,0,0,4,4,4,4,3,3,2,2,2,2,2,3,3,3,0,0,0,4,4,4,3,3,3,3,3,0,2,2,3,2,0,0,0,0,4,3,3,3,3,3,0,0,2,2,3,2,0,0,0,0,0,0,3,3,3,3,0,0,2,2,2,2,0,0,0,2,3,1,3,3,3,3,1,2,2,2,2,2,0,0,2,2,2,1,3,3,3,3,1,2,2,2,2,0,0,2,2,2,2,1,2,2,2,2,1,2,2,2,2,0,0,2,2,2,2,1,2,2,2,2,1,2,2,2,0,0,2,2,2,2,1,1,2,2,2,2,1,1,2,2,0,0,2,2,2,2,1,1,2,2,2,2,1,1,0,0,0,0,3,2,2,2,1,1,2,2,2,2,1,1,0,0,0,0,3,2,2,2,1,5,2,2,2,2,5,1,0,0,0,0,3,3,3,3,1,1,1,1,1,1,1,1,0,0,0,0,3,3,3,3,1,1,1,1,1,1,1,1,0,0,0,0,0,3,3,3,1,1,1,1,1,1,1,1,0,0,0,0,0,3,3,2,1,1,1,1,1,1,1,1,0,0,2,3,0,0,0,2,2,1,1,1,1,1,1,1,0,0,2,3,0,0,0,1,2,2,2,1,1,1,1,1,3,2,2,3,3,2,2,1,1,1,2,1,1,1,1,1,3,2,2,2,2,2,2,2,3,1,2,1,1,1,1,1,3,2,3,3,2,2,2,2,3,1,0,0,0,0,0,0,0,0,0,0,3,2,2,2,3,1,0,0,0,0,0,0,0,0,0,0,3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,3,2,2,3,3,0,0,0,0,3,2,3,3,3,3];
+    
+    this.bigJumpL = [];
+    
+    for(var i = 0; i < 32; i++) {
+        for(var j = 15; j >= 0; j--) {
+            this.bigJumpL.push(this.bigJump[i*16 + j]);   
+        }
+    }
+    
+    this.bigRun1 = [0,0,0,0,0,4,4,4,4,4,4,0,0,0,0,0,0,0,0,4,4,4,4,4,4,5,5,0,0,0,0,0,0,0,4,4,4,4,4,4,5,5,5,0,0,0,0,0,0,0,4,4,4,4,4,4,4,4,4,0,0,0,0,0,0,0,4,4,4,4,3,2,3,3,3,0,0,0,0,0,0,0,4,4,4,4,3,2,2,3,3,3,3,0,0,0,0,0,4,4,4,4,3,3,3,3,3,3,3,3,0,0,0,0,4,4,4,4,3,3,3,2,3,3,3,3,0,0,0,0,4,4,4,4,3,2,2,2,2,2,2,0,0,0,0,0,4,4,4,4,3,3,2,2,2,2,2,0,0,0,0,0,0,4,4,4,3,3,3,3,3,3,0,0,0,0,0,0,0,0,4,3,3,3,3,3,3,0,0,0,0,0,0,0,0,0,0,0,3,3,3,3,0,0,0,0,0,0,0,0,2,1,1,2,2,2,2,1,2,2,0,0,0,0,0,2,2,2,1,1,2,2,2,1,1,2,2,0,0,0,2,2,2,2,2,1,1,2,2,2,1,1,2,3,3,3,2,2,2,2,2,1,1,2,2,2,2,1,2,3,3,3,2,2,2,2,1,1,1,2,2,2,2,1,1,3,3,3,2,2,2,2,1,1,1,1,2,2,2,1,1,2,2,3,3,2,2,2,1,1,1,1,2,2,1,1,1,2,0,0,3,2,2,2,1,1,1,1,2,2,1,1,1,0,0,0,3,3,3,3,1,1,1,1,1,1,1,1,0,0,0,0,3,3,3,3,1,1,1,5,1,1,1,5,0,0,2,2,0,3,3,1,1,1,1,1,1,1,1,1,0,0,2,2,0,3,3,2,2,1,1,1,1,1,1,3,2,2,2,3,0,0,0,1,1,2,1,1,1,1,1,3,2,2,2,3,0,0,1,1,1,1,2,1,1,1,1,3,2,2,2,3,0,3,3,1,1,1,1,2,1,1,1,3,3,3,2,3,2,2,3,3,1,1,0,0,0,0,0,0,0,0,0,0,2,2,2,3,0,0,0,0,0,0,0,0,0,0,0,0,2,3,2,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,2,0,0,0,0,0,0,0,0,0,0,0,0,3,3,2,2,3,3,0,0,0,0,3,2,3,3,3,3];
+    
+    this.bigRun1L = [];
+    for(var i = 0; i < 32; i++) {
+        for(var j = 15; j >= 0; j--) {
+            this.bigRun1L.push(this.bigRun1[i*16 + j]);   
+        }
+    }
+    
+    this.bigRun2 = [0,0,0,0,0,4,4,4,4,4,4,0,0,0,0,0,0,0,0,4,4,4,4,4,4,5,5,0,0,0,0,0,0,0,4,4,4,4,4,4,5,5,5,0,0,0,0,0,0,0,4,4,4,4,4,4,4,4,4,0,0,0,0,0,0,0,4,4,4,4,3,2,3,3,3,0,0,0,0,0,0,0,4,4,4,4,3,2,2,3,3,3,3,0,0,0,0,0,4,4,4,4,3,3,3,3,3,3,3,3,0,0,0,0,4,4,4,4,3,3,3,2,3,3,3,3,0,0,0,0,4,4,4,4,3,2,2,2,2,2,2,0,0,0,0,0,4,4,4,4,3,3,2,2,2,2,2,0,0,0,0,0,0,4,4,4,3,3,3,3,3,3,0,0,0,0,0,0,0,0,4,3,3,3,3,3,3,0,0,0,0,0,0,0,0,0,0,0,3,3,3,3,0,0,0,0,0,0,0,0,0,0,0,1,3,3,3,3,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,1,2,2,2,1,1,1,0,0,0,0,0,0,0,0,0,1,2,2,2,2,1,1,1,0,0,0,0,0,0,0,0,1,2,2,2,2,1,1,1,0,0,0,0,0,0,0,0,1,2,2,2,2,1,1,1,0,0,0,0,0,0,0,0,1,2,2,2,2,1,1,1,0,0,0,0,0,0,0,0,1,2,2,2,2,2,2,1,1,1,0,0,0,0,0,0,1,1,2,2,2,2,3,3,1,1,1,0,0,0,0,0,1,1,1,2,2,2,3,3,3,3,1,1,0,0,0,0,1,1,1,1,2,2,3,3,3,3,1,1,0,0,0,0,0,1,1,1,1,1,3,3,3,1,1,1,0,0,0,0,0,1,1,1,1,1,0,2,2,1,1,0,0,0,0,0,0,1,1,1,1,0,0,2,2,2,0,0,0,0,0,0,0,3,3,3,3,0,0,3,2,2,0,0,0,0,0,0,0,2,2,2,2,0,0,3,3,2,2,0,0,0,0,0,0,3,2,2,2,0,0,0,3,3,3,0,0,0,0,0,0,3,2,2,2,2,2,0,0,0,0,0,0,0,0,0,0,3,2,3,3,3,3,0,0,0,0,0,0,3,3,2,2,3,3,0,0,0,0,3,2,3,3,3,3];
+    
+    this.bigRun2L = [];
+    for(var i = 0; i < 32; i++) {
+        for(var j = 15; j >= 0; j--) {
+            this.bigRun2L.push(this.bigRun2[i*16 + j]);   
+        }
+    }
+    
+    this.bigRun3 = [0,0,0,0,0,4,4,4,4,4,4,0,0,0,0,0,0,0,0,4,4,4,4,4,4,5,5,0,0,0,0,0,0,0,4,4,4,4,4,4,5,5,5,0,0,0,0,0,0,0,4,4,4,4,4,4,4,4,4,0,0,0,0,0,0,0,4,4,4,4,3,2,3,3,3,0,0,0,0,0,0,0,4,4,4,4,3,2,2,3,3,3,3,0,0,0,0,0,4,4,4,4,3,3,3,3,3,3,3,3,0,0,0,0,4,4,4,4,3,3,3,2,3,3,3,3,0,0,0,0,4,4,4,4,3,2,2,2,2,2,2,0,0,0,0,0,4,4,4,4,3,3,2,2,2,2,2,0,0,0,0,0,0,4,4,4,3,3,3,3,3,3,0,0,0,0,0,0,0,0,4,3,3,3,3,3,3,0,0,0,0,0,0,0,0,0,0,0,3,3,3,3,0,0,0,0,0,0,0,0,0,0,0,1,3,3,3,3,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,2,1,1,1,1,2,2,2,1,1,0,0,0,0,0,0,2,1,1,1,1,2,2,2,1,1,1,0,0,0,0,0,2,1,1,1,2,2,2,2,2,1,1,0,0,0,0,0,2,1,1,1,2,2,2,2,2,2,2,3,0,0,0,0,0,1,1,1,1,2,2,2,2,2,2,3,3,3,0,0,0,1,1,1,1,2,2,2,2,2,2,3,3,3,0,0,0,1,1,1,1,1,1,1,1,2,2,3,3,0,0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,1,1,1,1,1,1,1,2,2,0,0,0,0,0,0,0,1,1,1,1,1,1,2,1,1,0,0,0,2,2,2,3,1,1,1,1,1,2,1,1,1,0,0,0,3,2,2,3,1,1,1,1,1,0,3,3,2,0,0,0,3,2,2,3,1,1,1,0,0,0,2,2,2,0,0,0,3,2,0,0,0,0,0,0,0,0,3,2,2,0,0,0,2,2,0,0,0,0,0,0,0,0,3,2,2,2,2,0,0,0,0,0,0,0,0,0,0,0,3,2,3,3,3,0,3,3,2,2,3,3,0,0,0,0,3,2,3,3,3,3];
+    
+    this.bigRun3L = [];
+    for(var i = 0; i < 32; i++) {
+        for(var j = 15; j >= 0; j--) {
+            this.bigRun3L.push(this.bigRun3[i*16 + j]);   
+        }
+    }
+    
+    }
+    
+};
+
+Player.prototype.checkEdges = function() {
+    if(this.posX < 0) {
+        this.posX = 0;
+        this.velX = 0;
+    }
+    
+    if(this.posY > height) {
+        this.dead = true;
+        if(!mute) {
+            playSound(getSound("rpg/giant-no"));
+        }
+    }
+};
+
+Player.prototype.display = function() {
+    
+    if(round(this.velX) > 0 && this.onGround) {
+        this.chosen = "R";   
+    } else if(round(this.velX) < 0 && this.onGround) {
+        this.chosen = "L";
+    }
+    
+    if(this.state === 0) {
+        if(this.chosen === "R") {
+            
+            if(this.crouch) {
+                loadImg(this.neutralCrouch,16,16,this.posX,this.posY,this.width,this.height);
+            } else if(this.onGround && this.velX < 2) {
+                loadImg(this.neutral,16,16,this.posX,this.posY,this.width,this.height);
+            } else if(this.onGround) {
+                
+                var dur = 12;
+                
+                if(++this.runFrame % dur < dur/3) {
+                    loadImg(this.run1,16,16,this.posX,this.posY,this.width,this.height);   
+                } else if(this.runFrame % dur < dur*2/3) {
+                    loadImg(this.run2,16,16,this.posX,this.posY,this.width,this.height);   
+                } else {
+                    loadImg(this.run3,16,16,this.posX,this.posY,this.width,this.height);   
+                }
+            }
+            
+            if(!this.onGround && !this.crouch) {
+                loadImg(this.jump,16,16,this.posX,this.posY,this.width,this.height);
+            }
+            
+        } else if(this.chosen === "L") {
+            
+            if(this.crouch) {
+                loadImg(this.neutralCrouchL,16,16,this.posX,this.posY,this.width,this.height);  
+            } else if(this.onGround && this.velX > -2) {
+                loadImg(this.neutralL,16,16,this.posX,this.posY,this.width,this.height);
+            } else if(this.onGround) {
+                
+                var dur = 12;
+                
+                if(++this.runFrame % dur < dur/3) {
+                    loadImg(this.run1L,16,16,this.posX,this.posY,this.width,this.height);
+                } else if(this.runFrame % dur < dur*2/3) {
+                    loadImg(this.run2L,16,16,this.posX,this.posY,this.width,this.height);
+                } else {
+                    loadImg(this.run3L,16,16,this.posX,this.posY,this.width,this.height);
+                }
+               
+            }
+            
+            if(!this.onGround && !this.crouch) {
+                loadImg(this.jumpL,16,16,this.posX,this.posY,this.width,this.height);
+            }
+            
+        }
+    } else {
+        if(this.chosen === "R") {
+            
+            if(this.crouch) {
+                loadImg(this.bigNeutralCrouch,16,16,this.posX,this.posY,this.width,this.height);
+            } else if(this.onGround && this.velX < 2) {
+                loadImg(this.bigNeutral,32,16,this.posX,this.posY,this.width,this.height);
+            } else if(this.onGround) {
+                
+                var dur = 12;
+                
+                if(++this.runFrame % dur < dur/3) {
+                    loadImg(this.bigRun1,32,16,this.posX,this.posY,this.width,this.height);   
+                } else if(this.runFrame % dur < dur*2/3) {
+                    loadImg(this.bigRun2,32,16,this.posX,this.posY,this.width,this.height);   
+                } else {
+                    loadImg(this.bigRun3,32,16,this.posX,this.posY,this.width,this.height);   
+                }
+            }
+            
+            if(!this.onGround && !this.crouch) {
+                loadImg(this.bigJump,32,16,this.posX,this.posY,this.width,this.height);
+            }
+            
+        } else if(this.chosen === "L") {
+            
+            if(this.crouch) {
+                loadImg(this.bigNeutralCrouchL,16,16,this.posX,this.posY,this.width,this.height);  
+            } else if(this.onGround && this.velX > -2) {
+                loadImg(this.bigNeutralL,32,16,this.posX,this.posY,this.width,this.height);
+            } else if(this.onGround) {
+                
+                var dur = 12;
+                
+                if(++this.runFrame % dur < dur/3) {
+                    loadImg(this.bigRun1L,32,16,this.posX,this.posY,this.width,this.height);
+                } else if(this.runFrame % dur < dur*2/3) {
+                    loadImg(this.bigRun2L,32,16,this.posX,this.posY,this.width,this.height);
+                } else {
+                    loadImg(this.bigRun3L,32,16,this.posX,this.posY,this.width,this.height);
+                }
+               
+            }
+            
+            if(!this.onGround && !this.crouch) {
+                loadImg(this.bigJumpL,32,16,this.posX,this.posY,this.width,this.height);
+            }
+            
+        }
+    }
+    
+};
+
+Player.prototype.control = function(ground) {
+    
+    if(keys[LEFT]) {
+        this.velX --;
+    }
+
+    if(keys[RIGHT]) {
+        this.velX ++;
+    }
+    
+    if((keys[32] && this.onGround) || (keys[UP] && this.onGround)) {
+        this.velY = -20 - min(this.state,2)*5;
+        if(this.crouch) {
+            this.velY = -15;   
+        }
+    } else if(keys[32] || keys[UP]) {
+        this.velY -= 2 - min(this.state,4)/4;   
+    }
+    
+    if(keys[DOWN]) {
+        this.height = 40;  
+        this.crouch = true;
+    } else {
+        var release = true;
+    
+        if(this.state !== 0) {
+
+            if(this.crouch) {
+                
+                for(var i = 0; i < ground.length; i++) {
+                    if(collidePos(this.posX,this.posY - 40, this.width,80,ground[i].posX,ground[i].posY,ground[i].width,ground[i].height)) {
+                        release = false;
+                    }
+                }
+                
+                if(release) {
+                    this.posY -= 40;
+                    this.height = 80;
+                }
+            }
+        }
+        
+        if(release) {
+            this.crouch = false;
+        }
+    }
+
+    if(!keys[LEFT] && !keys[RIGHT]) {
+        this.velX *= 0.8;
+    }
+    if(this.crouch) {
+        this.velX *= 0.97; 
+    }
+    
+    if(!keys[32] && !keys[UP]) {
+       this.velY *= 0.8; 
+    }
+    
+    this.velY = constrain(this.velY,-35,35);
+    if(this.crouch) {
+        this.velX = constrain(this.velX,-2,2);   
+    }
+    this.velX = constrain(this.velX,-10,10);
+    
+    this.velY += 3;
+};
+
+var zoombas = [];
+var mushes = [];
+var ground = [];
+var bricks = [];
+var grenades = [];
+var v1s = [];
+var flamethrowers = [];
+
+var bowser = new Bowser(-500,480);
+
+var portal = new Portal(120,0);
+
+var loadArray = function(a) {
+    
+    var columns = a.length/15;
+    
+    zoombas = [];
+    mushes = [];
+    ground = [];
+    bricks = [];
+    flamethrowers = [];
+    grenades = [];
+    v1s = [];
+    
+    for(var i = 0; i < 16; i++) {
+        for(var j = 0; j < columns; j++) {
+            switch(a[i*columns + j]) {
+                case 1:
+                    ground.push(new Ground(j*40,i*40));
+                    break;
+                    
+                case 2:
+                    zoombas.push(new Zoomba(j*40,i*40,zoombas.length));
+                    break;
+                    
+                case 3:
+                    mushes.push(new Mush(j*40,i*40));
+                    break;
+                    
+                case 4:
+                    bricks.push(new Brick(j*40,i*40,"empty"));
+                    break;
+                    
+                case 4.1:
+                    bricks.push(new Brick(j*40,i*40,"Mush"));
+                    break;
+                    
+                case 4.2:
+                    bricks.push(new Brick(j*40,i*40,"Zoomba"));
+                    break;
+                    
+                case 5:
+                    portal.posX = j*40;
+                    portal.posY = i*40;
+                    break;
+                    
+                case 6:
+                    grenades.push(new Grenade(j*40,i*40));
+                    break;
+                
+                case 7:
+                    v1s.push(new V1(j*40,i*40));
+                    break;
+                    
+                case 8:
+                    flamethrowers.push(new Flamethrower(j*40,i*40));
+                    break;
+            }
+        }
+    }
+};
+
+Player.prototype.act = function(ground,mushes,zoombas,bricks,portal,grenades,v1s,bowser,flamethrowers) {
+    
+    if(!this.dead) {
+        
+        if(this.touchedGrenade >= 0) {
+            if(correct) {
+                this.items.push(grenades[this.touchedGrenade]);
+                grenades[this.touchedGrenade].equipped = true;
+            } else {
+                grenades[this.touchedGrenade].posX = -500;   
+            }
+        }
+        
+        if(this.touchedV1 >= 0) {
+            if(correct) {
+                this.items.push(v1s[this.touchedV1]);
+                v1s[this.touchedV1].equipped = true;
+            } else {
+                v1s[this.touchedV1].posX = -500;   
+            }
+        }
+        
+        if(this.touchedFlamethrower >= 0) {
+            if(correct) {
+                this.items.push(flamethrowers[this.touchedFlamethrower]);
+                flamethrowers[this.touchedFlamethrower].equipped = true;
+            } else {
+                flamethrowers[this.touchedFlamethrower].posX = -500;
+            }
+        }
+        
+        for(var i = 0; i < this.items.length; i++) {
+            this.items[i].posX = this.posHistory[abs(40 - 5*i)][0];
+            this.items[i].posY = this.posHistory[abs(40 - 5*i)][1] + this.height - 40;
+        }
+
+        this.control(ground);
+        this.checkEdges();
+        
+        if(this.iFrames > 0) {
+            if(this.iFrames % 16 < 12) {
+                this.display();   
+            }
+        } else {
+            this.display();
+        }
+    
+        this.posY += this.velY;
+        this.onGround = false;
+        for(var i = 0; i < ground.length; i++) {
+            if(abs(this.posX - ground[i].posX) < 600 && !this.onGround) {
+                if(collide(this,ground[i])) {
+                    if(this.posY + this.height/2 < ground[i].posY + ground[i].height/2) {
+                        this.posY = ground[i].posY - this.height;
+                        this.onGround = true;
+                    } else {
+                        this.posY = ground[i].posY + ground[i].height;
+                        this.velY = abs(this.velY)/2;
+                    }
+                }
+            }
+        }
+        
+        var hitBricks = [];
+        
+        for(var i = 0; i < bricks.length; i++) {
+            if(abs(this.posX - bricks[i].posX) < 600) {
+                if(collide(this,bricks[i])) {
+                    if(this.posY + this.height/2 < bricks[i].posY + bricks[i].height/2) {
+                        this.posY = bricks[i].posY - this.height;
+                        this.onGround = true;
+                    } else {
+                        hitBricks.push(i);
+                    }
+                }
+            }
+        }
+        
+        var playNoise = false;
+        
+        for(var i = 0; i < hitBricks.length; i++) {
+            if(bricks[hitBricks[i]].state === 0) {
+                bricks[hitBricks[i]].unpack(mushes,zoombas);
+                playNoise = true;
+            }
+        }
+        
+        if(playNoise && !mute) {
+            playSound(getSound("rpg/hit-whack"));
+        }
+        
+        if(hitBricks.length > 0) {
+            this.posY = bricks[hitBricks[0]].posY + bricks[hitBricks[0]].height;
+            this.velY = abs(this.velY)/2;
+        }
+        
+        this.posX += this.velX;
+        this.posX = round(this.posX*10)/10;
+        for(var i = 0; i < ground.length; i++) {
+            if(abs(this.posX - ground[i].posX) < 600) {
+                if(collide(this,ground[i])) {
+                    if(this.posX + this.width/2 < ground[i].posX + ground[i].width/2) {
+                        this.posX = ground[i].posX - this.width;
+                        this.velX = 0;
+                    } else {
+                        this.posX = ground[i].posX + ground[i].width;
+                        this.velX = 0;
+                    }
+                }
+            }
+        }
+        for(var i = 0; i < bricks.length; i++) {
+            if(abs(this.posX - bricks[i].posX) < 600) {
+                if(collide(this,bricks[i])) {
+                    if(this.posX + this.width/2 < bricks[i].posX + bricks[i].width/2) {
+                        this.posX = bricks[i].posX - this.width;
+                        this.velX = 0;
+                    } else {
+                        this.posX = bricks[i].posX + bricks[i].width;
+                        this.velX = 0;
+                    }
+                }
+            }
+        }
+        
+        for(var i = 0; i < zoombas.length; i++) {
+            
+            if(zoombas[i].posX < -40 || zoombas[i].posY > height) {
+                zoombas.splice(i,1,0);   
+            }
+            
+            if(abs(this.posX - zoombas[i].posX) < 600) {
+                if(collide(this,zoombas[i])) {
+                    if(this.posY + this.height < zoombas[i].posY + zoombas[i].height) {
+                        this.onGround = true;
+                        this.velY = -min(60,abs(this.velY));
+                        zoombas.splice(i,1,0);
+                        if(!mute) {
+                            playSound(getSound("rpg/battle-swing"));
+                        }
+                    } else if(this.iFrames <= 0) {
+                        this.state --;
+                        if(this.state === 0) {
+                            this.height = 40;
+                        } else if(this.state < 0) {
+                            this.dead = true;
+                            if(!mute) {
+                                playSound(getSound("rpg/giant-no"));
+                            }
+                        }
+                        this.iFrames = 90;
+                    }
+                }
+            }
+        }
+        
+        for(var i = 0; i < mushes.length; i++) {
+            if(abs(this.posX - mushes[i].posX) < 600) {
+                if(collide(this,mushes[i])) {
+                    this.state = 1;
+                    this.height = 80;
+                    mushes.splice(i,1,0);
+                    if(!mute) {
+                        playSound(getSound("rpg/giant-yah"));
+                    }
+                }
+            }
+        }
+        
+        this.touchedGrenade = -1;
+        for(var i = 0; i < grenades.length; i++) {
+            if(abs(this.posX - grenades[i].posX) < 600) {
+                if(!grenades[i].launched && collide(this,grenades[i])) {
+                    if(!grenades[i].equipped) {
+                        question = round(random(0,2));
+                        scene = "grenade";
+                        correct = false;
+                        this.touchedGrenade = i;
+                    }
+                }
+            }
+        }
+        
+        this.touchedV1 = -1;
+        for(var i = 0; i < v1s.length; i++) {
+            if(abs(this.posX - v1s[i].posX) < 600) {
+                if(!v1s[i].launched && collide(this,v1s[i])) {
+                    if(!v1s[i].equipped) {
+                        question = round(random(0,2));
+                        scene = "v1";
+                        correct = false;
+                        this.touchedV1 = i;
+                    }
+                }
+            }
+        }
+        
+        this.touchedFlamethrower = -1;
+        for(var i = 0; i < flamethrowers.length; i++) {
+            if(abs(this.posX - flamethrowers[i].posX) < 600) {
+                if(!flamethrowers[i].launched && collide(this,flamethrowers[i])) {
+                    if(!flamethrowers[i].equipped) {
+                        question = round(random(0,2));
+                        scene = "flamethrower";
+                        correct = false;
+                        this.touchedFlamethrower = i;
+                    }
+                }
+            }
+        }
+        if(collide(this,bowser)) {
+            if(this.posY + this.height < bowser.posY + bowser.height/3) {
+                correct = false;
+                scene = "bowser";
+                
+                question = 5 - floor(bowser.health/0.2);
+            } else if(this.iFrames <= 0) {
+                this.state --;
+                if(this.state === 0) {
+                    this.height = 40;
+                } else if(this.state < 0) {
+                    this.dead = true;
+                    if(!mute) {
+                        playSound(getSound("rpg/giant-no"));
+                    }
+                }
+                this.iFrames = 90;
+            }
+        }
+        
+        if(collide(this,portal)) {
+            if(level + 1 <= levels.length) {
+                portal.posX = -100;
+                this.posX = 0;
+                this.posY = 0;
+                this.items = [];
+                loadArray(levels[++level]);
+                if(level === levels.length - 1) {
+                    bowser.posX = 320;   
+                }
+            } else {
+                scene = "win";
+            }
+        }
+        
+        this.iFrames --;
+        
+        if(this.state < 0 && !mute) {
+            this.dead = true;
+            playSound(getSound("rpg/giant-no"));
+        }
+        
+        this.posHistory.push([this.posX,this.posY]);
+        while(this.posHistory.length > 50) {
+            this.posHistory.shift();
+        }
+        
+        if(scene === "bowser") {
+            this.posX -= 150;   
+        }
+        
+    } else {
+        this.posX = 0;
+        this.posY = 0;
+        this.velX = 0;
+        this.velY = 0;
+        
+        this.state = 0;
+        this.height = 40;
+        this.dead = false;
+        this.iFrames = 90;
+        
+        if(level + 1 <= levels.length) {
+            loadArray(levels[level]);
+            if(level + 1 === levels.length) {
+                bowser.posX = 320;
+            }
+        }
+        this.items = [];
+        question = 0;
+    }
+    
+};
+
+var p1 = new Player(0,0,0,0);
+var spriteZ = new Zoomba(0,0);
+var spriteB = new Brick(0,0);
+var snow = new Snow();
+var playButton = new Button(300,200,160,80, "Play");
+var infoButton = new Button(300,340,160,80,"Info");
+var homeButton = new Button(420,500,160,80,"Back");
+var optionA = new Button(100,300,160,80,"A");
+var optionB = new Button(100,440,160,80,"B");
+var optionC = new Button(340,300,160,80,"C");
+var optionD = new Button(340,440,160,80,"D");
+
+keyPressed = function() {
+    keys[keyCode] = true;  
+    
+    if(keyCode === 80) {
+        if(scene === "game") {
+            fill(255,200);
+            noStroke();
+            rect(240,200,150,200,10);
+            
+            fill(0);
+            textSize(100);
+            text("||",275,360);
+            
+            scene = "pause";
+        } else if(scene === "pause") {
+            scene = "game";   
+        }
+    }
+    
+    if(keyCode === 82) {
+        Program.restart();
+    }
+    
+    if(keyCode === 77) {
+        if(mute) {
+            mute = false;   
+        } else {
+            //mute = true;
+        }
+    }
+    
+    if(keyCode === 67) {
+        if(p1.items.length > 0) {
+            p1.items[0].posX = p1.posX;
+            p1.items[0].posY = p1.posY;
+            p1.items[0].trigger(p1.chosen); 
+            p1.items.shift();
+        }   
+    }
+    
+};
+
+keyReleased = function() {
+    keys[keyCode] = false;  
+};
+
+mouseClicked = function() {
+    if(scene === "title") {
+        
+        if(collidePos(mouseX,mouseY,0,0,playButton.posX,playButton.posY,playButton.width,playButton.height)) {
+            loadArray(levels[level]);
+            scene = "game";   
+        }
+        
+        if(collidePos(mouseX,mouseY,0,0,infoButton.posX,infoButton.posY,infoButton.width,infoButton.height)) {
+            scene = "info";   
+        }
+        
+    } else if(scene === "info") {
+        
+        if(collidePos(mouseX,mouseY,0,0,homeButton.posX,homeButton.posY,homeButton.width,homeButton.height)) {
+            scene = "title";   
+        } 
+        
+    } else if(scene === "grenade" || scene === "v1" || scene === "bowser" || scene === "flamethrower") {
+        
+        var hitOption = false;
+        var item = -1;
+        
+        if(scene === "grenade") {
+            item = 0;
+        } else if(scene === "v1") {
+            item = 1;   
+        } else if(scene === "flamethrower") {
+            item = 2;
+        } else if(scene === "bowser") {
+            item = 3;   
+        }
+        
+        if(collidePos(mouseX,mouseY,0,0,optionA.posX,optionA.posY,optionA.width,optionA.height)) {
+            if(answerKey[item][question] === "A") {
+                correct = true;
+                
+                if(!mute) {
+                    playSound(getSound("rpg/giant-hyah"));
+                }
+                
+            } else {
+                correct = false;
+                
+                if(!mute) {
+                    playSound(getSound("rpg/giant-no"));
+                }
+            }
+            hitOption = true;
+        } else if(collidePos(mouseX,mouseY,0,0,optionB.posX,optionB.posY,optionB.width,optionB.height)) {
+            if(answerKey[item][question] === "B") {
+                correct = true;
+                
+                if(!mute) {
+                    playSound(getSound("rpg/giant-hyah"));
+                }
+            } else {
+                correct = false;
+                
+                if(!mute) {
+                    playSound(getSound("rpg/giant-no"));
+                }
+            }
+            hitOption = true;
+        } else if(collidePos(mouseX,mouseY,0,0,optionC.posX,optionC.posY,optionC.width,optionC.height)) {
+            if(answerKey[item][question] === "C") {
+                correct = true;
+                
+                if(!mute) {
+                    playSound(getSound("rpg/giant-hyah"));
+                }
+            } else {
+                correct = false;
+                
+                if(!mute) {
+                    playSound(getSound("rpg/giant-no"));
+                }
+            }
+            hitOption = true;
+        } else if(collidePos(mouseX,mouseY,0,0,optionD.posX,optionD.posY,optionD.width,optionD.height)) {
+            if(answerKey[item][question] === "D") {
+                correct = true;
+                
+                if(!mute) {
+                    playSound(getSound("rpg/giant-hyah"));
+                }
+            } else {
+                correct = false;
+                
+                if(!mute) {
+                    playSound(getSound("rpg/giant-no"));
+                }
+            }
+            hitOption = true;
+        }
+        
+        if(scene === "bowser" && correct) {
+            bowser.health -= 0.2;   
+        } else if(scene === "bowser" && hitOption) {
+            bowser.health = min(bowser.health + 0.2,1);   
+        }
+        
+        if(hitOption) {
+            scene = "game";
+        }
+        
+        if(bowser.health < 0.2) {
+            scene = "win";   
+        }
+        
+    }
+};
+
+//level creation
+levels[0] = [
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4.1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,1,1,1,1,0,0,0,0,0,0,0,1,1,1,1,1,0,0,0,0,4,4,4.2,0,0,0,0,0,0,0,0,0,0,4.1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,1,0,0,0,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,6,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,1,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,1,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,2,0,0,0,0,0,0,0,1,0,2,2,2,2,2,2,2,2,0,0,1,0,0,0,0,0,0,2,0,0,0,0,0,1,0,0,0,0,3,1,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,1,1,1,0,1,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,1,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
+];
+
+levels[1] = [
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4.2,4.2,4.1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,0,0,0,0,0,4.1,0,0,0,1,0,0,0,0,1,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,2,0,0,0,0,0,0,0,0,0,1,0,0,0,0,1,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,2,2,0,0,0,0,0,0,0,0,0,1,2,2,2,2,1,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,7,0,0,0,0,0,0,0,0,0,0,2,2,2,2,1,0,0,0,0,0,0,6,0,1,2,2,2,2,1,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,8,0,0,0,2,2,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,1,1,0,0,1,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,0,0,1,0,0,1,0,0,1,0
+];
+
+levels[2] = [
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,6,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,1,2,0,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,4.1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,4,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,8,0,1,0,0,0,0,0,0,2,2,1,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,6,4,1,7,2,2,0,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+];
+
+levels[3] = [
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,8,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,8,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,7,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,7,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,7,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,7,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4.2,0,0,0,0,0,0,0,0,0,7,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4.1,0,0,0,0,0,0,0,0,0,0,0,0,8,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4.1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,6,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,6,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,6,0,0,0,0,0,0,0,0,0,5,0,0,0,0,0,0,0,0,0,0,2,2,2,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2,1,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,6,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,2,2,1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,8,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,6,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,1,1,4.1,2,2,0,0,0,0,1,0,0,0,0,0,0,0,0,1,1,1,1,1,0,0,1,1,1,1,1,0,0,1,2,2,0,0,0,0,0,0,0,7,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,2,2,0,0,0,0,1,0,0,2,2,2,0,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,1,1,2,2,0,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
+];
+
+levels[levels.length] = [
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
+];
+
+var game = function() {
+    background(0,0,20,200);
+    pushMatrix();
+    
+    var left = levels[0].length/15*40;
+    if(p1.posX > 300 && p1.posX < left - 300) {
+        translate(-p1.posX + 300,0);
+    } else if(p1.posX >= left - 300) {
+        translate(-left + 600, 0);
+    }
+    
+    snow.act(p1.posX);
+    
+    for(var i = 0; i < grenades.length; i++) {
+        grenades[i].act(ground,bricks,zoombas);
+    }
+    
+    for(var i = 0; i < v1s.length; i++) {
+        v1s[i].act(ground,bricks,zoombas);   
+    }
+    
+    for(var i = 0; i < flamethrowers.length; i++) {
+        flamethrowers[i].act(ground,bricks,zoombas);   
+    }
+    
+    p1.act(ground,mushes,zoombas,bricks,portal,grenades,v1s,bowser,flamethrowers);
+    if(p1.posX > left - p1.width) {
+        p1.velX = 0;
+        p1.posX = left - p1.width;
+    }
+    
+    for(var i = 0; i < mushes.length; i++) {
+        if(abs(p1.posX - mushes[i].posX) < 600) {
+            mushes[i].act(ground,bricks);   
+        }
+    }
+    for(var i = 0; i < zoombas.length; i++) {
+        if(abs(p1.posX - zoombas[i].posX) < 600) {
+            zoombas[i].act(ground,zoombas,bricks);   
+        }
+    }
+    for(var i = 0; i < ground.length; i++) {
+        if(abs(p1.posX - ground[i].posX) < 600) {
+            ground[i].act();
+        }
+    }
+    for(var i = 0; i < bricks.length; i++) {
+        if(abs(p1.posX - bricks[i].posX) < 600) {
+            bricks[i].act();   
+        }
+    }
+    
+    bowser.act();
+    
+    portal.act();
+};
+
+draw = function() {
+    switch(scene) {
+        case "title":
+            background(0,0,20,200);
+            textSize(100);
+            fill(255,255,255);
+            textFont(createFont("cursive"),40);
+            text("The Adventures of a",110,100);
+            text("Soviet Plumber",150,150);
+            
+            textSize(20);
+            text("By Shivum Banerjee",10,590);
+            
+            playButton.act();
+            infoButton.act();
+            
+            loadImg(p1.bigNeutral,32,16,150,190,120,240);
+            break;
+        
+        case "game":
+            game();
+            break;
+            
+        case "info":
+            background(0,0,20,200);
+            
+            fill(255);
+            text(" - You are ",25,125);
+            loadImg(p1.neutral,16,16,165,50,120,120);
+            
+            fill(255);
+            text(" - Jump on",25,265);
+            text("   enemies",25,300);
+            loadImg(spriteZ.img,16,16,175,200,120,120);
+            
+            fill(255);
+            text(" - Ground: ",25,425);
+            rect(165,350,120,120);
+            
+            text(" - Answer questions",310,125);
+            text("   to obtain weapons",310,160);
+            
+            text(" - Hit",310,275);
+            loadImg(spriteB.closedImg,16,16,400,200,120,120);
+            
+            fill(255);
+            text(" - Portal",310,385);
+            text("   to next",310,420);
+            text("   level:",310,455);
+            loadImg(portal.img,16,16,450,340,120,120);
+            
+            homeButton.act();
+            break;
+            
+        case "pause":
+            
+            break;
+            
+        case "grenade":
+            background(0,0,20,200);
+            fill(255);
+            switch(question) {
+                case 0:
+                    textSize(35);
+                    text("Which of the following is",100,100);
+                    text("the name of this famous,",100,150);
+                    text("American fragmentation grenade?",20,200);
+                    textSize(20);
+                    text("A. Pineapple Grenade",100,240);
+                    text("B. MK6",100,280);
+                    text("C. MiniBomb",400,240);
+                    text("D. Fragmenter",400,280);
+                    break;
+                    
+                case 1:
+                    textSize(35);
+                    text("What made the MK2 easier to",50,100);
+                    text("grip and throw?",170,150);
+                    
+                    textSize(20);
+                    text("A. Its grooves",100,220);
+                    text("B. Its teardrop shape",100,260);
+                    text("C. Its sticky surface",375,220);
+                    text("D. It wasn't easy to",375,260);
+                    text("    grip and throw",375,280);
+                    break;
+                        
+                case 2:
+                    textSize(35);
+                    text("What effect did the MK2 grenade",30,100);
+                    text("have on WWII?",180,150);
+                    
+                    textSize(20);
+                    text("A. It gave troops hope",100,200);
+                    text("B. It destroyed German",100,260);                          text("   tanks",100,280);
+                    text("C. It helped win trench",375,200);
+                    text("   battles", 375, 220);
+                    text("D. It did nothing",375,260);
+            }
+                
+            optionA.act();
+            optionB.act();
+            optionC.act();
+            optionD.act();
+            break;
+            
+        case "flamethrower":
+            fill(255);
+            background(0,0,20,200);
+            switch(question) {
+                case 0:
+                    textSize(35);
+                    text("Which of the following",120,100);
+                    text("ejected gasoline",170,150);
+                    text("and ignited it?",180,200);
+                    textSize(20);
+                    text("A. Flamethrower",100,240);
+                    text("B. Boeing R2",100,280);
+                    text("C. M2 Browning",400,240);
+                    text("D. V1 Rocket",400,280);
+                    break;
+                    
+                case 1:
+                    textSize(23);
+                    text("Which weapon, used in WWII, was banned after WWI?",2,160);
+
+                    textSize(20);
+                    text("A. Bug Bomb",100,220);
+                    text("B. Flamethrower",100,260);
+                    text("C. Little Man",375,220);
+                    text("D. Me 262",375,260);
+                    break;
+                        
+                case 2:
+                    textSize(35);
+                    text("What effect did the",150,100);
+                    text("flamethrower have on WWII?",60,150);
+                    
+                    textSize(20);
+                    text("A. It triggered traps",100,200);
+                    text("B. It destroyed Japan",100,280);
+                    text("C. It burnt people alive ",375,200);
+                    text(" and hurt enemy morale", 375, 220);
+                    text("D. It killed F.D.R.",375,280);
+            }
+                
+            optionA.act();
+            optionB.act();
+            optionC.act();
+            optionD.act();
+            break;
+        
+            case "v1":
+            fill(255);
+            background(0,0,20,200);
+            switch(question) {
+                case 0:
+                    textSize(35);
+                    text("Which of the following is",100,100);
+                    text("the name of this dangerous",90,150);
+                    text("German cruise missile?",120,200);
+                    textSize(20);
+                    text("A. Katsuya Rocket Launcher",100,240);
+                    text("B. Boeing R2",100,280);
+                    text("C. M2 Browning",400,240);
+                    text("D. V1 Rocket",400,280);
+                    break;
+                    
+                case 1:
+                    textSize(35);
+                    text("For what was the V1 rocket used?",25,160);
+
+                    textSize(20);
+                    text("A. Precision bombing",100,220);
+                    text("B. Saturation bombing",100,260);
+                    text("C. 45",375,220);
+                    text("D. Fast travel",375,260);
+                    break;
+                        
+                case 2:
+                    textSize(35);
+                    text("What effect did the V1 rocket",70,100);
+                    text("have on WWII?",180,150);
+                    
+                    textSize(20);
+                    text("A. It scared those in Britain;",80,200);
+                    text("   several hundred were",80,220);
+                    text("   used per day",80,240);
+                    text("B. It destroyed Japan",80,280);
+                    text("C. It brought pride to the ",355,200);
+                    text("   Russians", 355, 220);
+                    text("D. It delivered fuel",355,280);
+            }
+                
+            optionA.act();
+            optionB.act();
+            optionC.act();
+            optionD.act();
+            break;
+        
+        case "bowser":
+            fill(255);
+            background(0,0,20,200);
+            switch(question) {
+                case 0:
+                    textSize(35);
+                    text("Which of the following",100,100);
+                    text("bombed Nagasaki?",130,150);
+
+                    textSize(20);
+                    text("A. Fat Man",100,240);
+                    text("B. Little Boy",100,280);
+                    text("C. V2 Rocket",400,240);
+                    text("D. Hydrogen Bomb",400,280);
+                    break;
+                    
+                case 1:
+                    textSize(35);
+                    text("What four-canoned plane came too",25,130);
+                    text("late to help the Germans in the war?",5,170);
+
+                    textSize(20);
+                    text("A. Me 262",100,220);
+                    text("B. V2 Rocket",100,260);
+                    text("C. Flamethrower",375,220);
+                    text("D. Eagle of Death",375,260);
+                    break;
+                        
+                case 2:
+                    textSize(35);
+                    text("What effect did the Boeing",90,100);
+                    text("Superfortress have on WWII?",70,150);
+                    
+                    textSize(20);
+                    text("A. It scared those in Britain",80,200);
+                    text("B. It destroyed Japan",80,260);
+                    text("C. It carried the bombs",355,200);
+                    text("   that destroyed Japan", 355, 220);
+                    text("D. It carried supplies to",355,260);
+                    text("   Britain",375,280);
+                    break;
+                    
+                case 3:
+                    textSize(35);
+                    text("Which of the following was used",60,100);
+                    text("offensively and defensively?",80,150);
+                    
+                    textSize(20);
+                    text("A. Avro Lancaster Bomber",100,200);
+                    text("B. Fat Man",100,260);
+                    text("C. V2 Rocket",375,200);
+                    text("D. M2 Browning",375,260);
+                    break;
+                    
+                case 4:
+                    textSize(35);
+                    text("Which bomber carried",100,100);
+                    text("the Grand Slam bombs?",100,150);
+                    
+                    textSize(20);
+                    text("A. The Hawker Hurricane",100,200);
+                    text("B. The Avro Lancaster Bomber",100,260);
+                    text("C. The Boeing",395,200);
+                    text("   Superfortress",395,225);
+                    text("D. The Buzz Bomber",395,260);
+                    break;
+            }
+                
+            optionA.act();
+            optionB.act();
+            optionC.act();
+            optionD.act();
+            break;
+        
+        case "win":
+            background(0,0,20,200);
+            fill(255);
+            textSize(100);
+            text("You",50,300);
+            text("won!",50,400);
+            loadImg(p1.bigJump,32,16,300,150,320,640);
+    }
+};
+}
+
+    }};
+
+    // Get the canvas that Processing-js will use
+    var canvas = document.getElementById("mycanvas"); 
+    // Pass the function sketchProc (defined in myCode.js) to Processing's constructor.
+    var processingInstance = new Processing(canvas, sketchProc); 
+ </script>
+
+</html>
